@@ -12,6 +12,7 @@ from torch.nn import functional as F
 
 from .common import LayerNorm2d
 
+
 class MaskDecoder(nn.Module):
     def __init__(
         self,
@@ -50,28 +51,22 @@ class MaskDecoder(nn.Module):
         self.mask_tokens = nn.Embedding(self.num_mask_tokens, transformer_dim)
 
         self.output_upscaling = nn.Sequential(
-            nn.ConvTranspose2d(
-               transformer_dim, 64, kernel_size=2, stride=2
-            ),
+            nn.ConvTranspose2d(transformer_dim, 64, kernel_size=2, stride=2),
             LayerNorm2d(64),
             activation(),
-            nn.ConvTranspose2d(
-               64, 32, kernel_size=2, stride=2
-            ),
+            nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),
             activation(),
-            nn.ConvTranspose2d(
-               32, 16, kernel_size=2, stride=2
-            ),
+            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
             activation(),
         )
-        
+
         self.output_hypernetworks_mlps = nn.ModuleList(
             [
                 MLP(transformer_dim, transformer_dim, 16, 3)
                 for i in range(self.num_mask_tokens)
             ]
         )
-        
+
         self.iou_prediction_head = MLP(
             transformer_dim, iou_head_hidden_dim, self.num_mask_tokens, iou_head_depth
         )
@@ -138,9 +133,21 @@ class MaskDecoder(nn.Module):
         # image_embeddings: [1, C, H, W], tokens: [B, N, C]
         # dense_prompt_embeddings: [B, C, H, W]
         # Expand per-image data in batch direction to be per-mask
-        src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0)
+        # origin code:
+        # src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0)
+        # pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
+
+        # new code for batch image_embeddings: [B, C, H, W], only when the batch of image_embeddings unequal with batch of tokens, we do broadcast
+        if image_embeddings.shape[0] != tokens.shape[0]:
+            src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0)
+        else:
+            src = image_embeddings
+        # the same logic for pos_src
+        if image_pe.shape[0] != tokens.shape[0]:
+            pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
+        else:
+            pos_src = image_pe
         src = src + dense_prompt_embeddings
-        pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
         b, c, h, w = src.shape
 
         # Run the transformer
@@ -167,6 +174,7 @@ class MaskDecoder(nn.Module):
 
         return masks, iou_pred
 
+
 class MLP(nn.Module):
     def __init__(
         self,
@@ -190,21 +198,42 @@ class MLP(nn.Module):
         if self.sigmoid_output:
             x = F.sigmoid(x)
         return x
-    
+
+
 class Neck(nn.Module):
     def __init__(
         self,
     ) -> None:
         super().__init__()
-        
+
         self.neck = nn.Sequential(
-            nn.Conv2d(in_channels=768*2, out_channels=768, kernel_size=1, stride=1, bias=False),
+            nn.Conv2d(
+                in_channels=768 * 2,
+                out_channels=768,
+                kernel_size=1,
+                stride=1,
+                bias=False,
+            ),
             LayerNorm2d(768),
-            nn.Conv2d(in_channels=768, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv2d(
+                in_channels=768,
+                out_channels=256,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
             LayerNorm2d(256),
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
-            LayerNorm2d(256)
+            nn.Conv2d(
+                in_channels=256,
+                out_channels=256,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
+            LayerNorm2d(256),
         )
-        
+
     def forward(self, x):
         return self.neck(x)
