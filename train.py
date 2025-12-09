@@ -83,7 +83,13 @@ for epoch in range(args.epochs):
             for k, v in inputs.items()
         }
         outputs = affordance_model(**inputs)
-        seg_loss = seg_loss_func(outputs["pred_masks"], inputs["gt_masks"])
+        pred_masks_upscaled = F.interpolate(  # scale to the image size
+            outputs["pred_masks"].unsqueeze(1),
+            size=(args.image_size, args.image_size),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(1)
+        seg_loss = seg_loss_func(pred_masks_upscaled, inputs["gt_masks"])
         loss = outputs.loss * 0.1 + seg_loss
         loss.backward()
         if global_step % 10 == 0:
