@@ -1,0 +1,16 @@
+model_path: /mnt/MLLMs/Qwen2.5-VL-7B-Instruct
+train_json_path: ./data_split/train_data.json
+img_path: /mnt/DATA/AGD20K/
+image_size: 896
+save_model_path: ./checkpoints/affordance_qwen2_5.pt
+
+lora_r: 64
+lora_alpha: 64
+lora_dropout: 0.05
+
+epochs: 10
+batch_size: 2
+gradient_accumulation_steps: 4
+
+lr: 0.00005
+weight_decay: 0.01
