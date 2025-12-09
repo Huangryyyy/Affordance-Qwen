@@ -5,7 +5,7 @@ image_size: 896
 save_model_path: ./checkpoints/affordance_qwen2_5.pt
 
 lora_r: 64
-lora_alpha: 64
+lora_alpha: 128
 lora_dropout: 0.05
 
 epochs: 10

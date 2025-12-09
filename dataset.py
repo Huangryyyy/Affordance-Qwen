@@ -53,8 +53,8 @@ class AGD20KwithDepth(Dataset):
         inputs = {
             "image": img,
             "depth_image": depth_img,
-            "query": sample["query"].replace("<|extra_0|>", "<seg_token>"),
-            "answer": sample["answer"],
+            "query": sample["query"],
+            "answer": sample["answer"].replace("<|extra_0|>", "<seg_token>"),
             "gt_mask": gt_mask,
         }
         return inputs
@@ -68,7 +68,7 @@ class CollatorForQwen2_5:
     def add_labels(self, inputs):
         inputs["labels"] = []
         for i in range(len(inputs["input_ids"])):
-            input_ids = inputs["input_ids"]
+            input_ids = inputs["input_ids"][i]
             labels = input_ids.clone()
             assistant_role_id = self.processor.tokenizer.convert_tokens_to_ids(
                 "assistant"

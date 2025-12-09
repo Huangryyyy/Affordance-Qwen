@@ -1,2 +1,7 @@
 candy.jpg
 small_test.py
+**/__pycache__/
+outputs_*/
+*.err
+*.out
+.vscode/

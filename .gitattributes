@@ -1,0 +1,41 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Force LF for all text files
+* text eol=lf
+
+# Denote files that are binary and should not be modified
+*.exe binary
+*.dll binary
+*.obj binary
+*.pdb binary
+*.so binary
+*.a binary
+*.o binary
+*.lib binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.rar binary
+*.7z binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.psd binary
+*.mp4 binary
+*.mov binary
+*.avi binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.flac binary
+*.pdf binary
+*.doc binary
+*.docx binary
+*.ppt binary
+*.pptx binary
+*.xls binary
+*.xlsx binary
