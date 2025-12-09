@@ -73,7 +73,7 @@ class CollatorForQwen2_5:
             assistant_role_id = self.processor.tokenizer.convert_tokens_to_ids(
                 "assistant"
             )
-            sep_indices = (input_ids[i] == assistant_role_id).nonzero(as_tuple=True)[0]
+            sep_indices = (input_ids == assistant_role_id).nonzero(as_tuple=True)[0]
             if len(sep_indices) > 0:
                 start_index = sep_indices[-1].item()
                 labels[: start_index + 2] = (

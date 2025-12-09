@@ -118,7 +118,7 @@ class AffordanceQwen2_5(nn.Module):
     ):
         image_features = self.base_model.visual(pixel_values, grid_thw=image_grid_thw)
         kwargs.pop("output_hidden_states", None)
-        if (
+        if (  # TODO: we run the forward of ViT two times, it costs much unnesseary memory, we need to solve this problem
             self.use_depth_image
             and depth_pixel_values is not None
             and depth_image_grid_thw is not None
