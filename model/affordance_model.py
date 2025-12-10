@@ -72,6 +72,8 @@ class AffordanceModelSam(nn.Module):
             masks=None,
             text_embeds=text_features.unsqueeze(1),
         )
+        if sparse_embeddings.dtype != text_features.dtype:
+            sparse_embeddings = sparse_embeddings.to(text_features.dtype)
         low_res_masks, iou_predictions = self.mask_decoder(
             image_embeddings=image_features,
             image_pe=self.prompt_encoder.get_dense_pe(),
@@ -103,6 +105,10 @@ class AffordanceQwen2_5(nn.Module):
             text_feature_dim=3584,
             patch_size=patch_size,
         )
+        self.affordance_decoder = self.affordance_decoder.to(
+            device=base_model.device,  # device=torch.device("cuda:1"),
+            dtype=base_model.dtype,  # you can put affordance decoder in anothor GPU, manually do a pipeline parallelism
+        )
         self.use_depth_image = use_depth_image
 
     def forward(
@@ -116,9 +122,11 @@ class AffordanceQwen2_5(nn.Module):
         depth_image_grid_thw=None,
         **kwargs,
     ):
-        image_features = self.base_model.visual(pixel_values, grid_thw=image_grid_thw)
+        image_features = self.base_model.visual(
+            pixel_values, grid_thw=image_grid_thw
+        )  # TODO: we run the forward of ViT two times, it costs much unnesseary memory, we need to solve this problem
         kwargs.pop("output_hidden_states", None)
-        if (  # TODO: we run the forward of ViT two times, it costs much unnesseary memory, we need to solve this problem
+        if (
             self.use_depth_image
             and depth_pixel_values is not None
             and depth_image_grid_thw is not None
@@ -145,12 +153,21 @@ class AffordanceQwen2_5(nn.Module):
         image_features = torch.repeat_interleave(
             image_features, seg_token_counts, dim=0
         )  # deal with the situation that one sample includes several seg_tokens
+        affordance_decoder_device = next(self.affordance_decoder.parameters()).device
+        image_features, text_features = image_features.to(
+            affordance_decoder_device
+        ), text_features.to(
+            affordance_decoder_device
+        )  # manually set device to fit the pipeline parallelism
         low_res_masks, iou_predictions = self.affordance_decoder(
             image_features, text_features
         )
         low_res_masks = low_res_masks[:, 0]
+        low_res_masks = low_res_masks.to(
+            self.base_model.device
+        )  # manually set device back
         return {
             "sft_loss": outputs.loss,
-            "base_model_outputs": outputs,
+            "logits": outputs.logits,
             "pred_masks": low_res_masks,
         }

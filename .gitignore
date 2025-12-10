@@ -2,6 +2,8 @@ candy.jpg
 small_test.py
 **/__pycache__/
 outputs_*/
+*_outputs/
 *.err
 *.out
+checkpoints/
 .vscode/

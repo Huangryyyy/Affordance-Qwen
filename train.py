@@ -90,7 +90,7 @@ for epoch in range(args.epochs):
             align_corners=False,
         ).squeeze(1)
         seg_loss = seg_loss_func(pred_masks_upscaled, inputs["gt_masks"])
-        loss = outputs.loss * 0.1 + seg_loss
+        loss = outputs["sft_loss"] * 0.1 + seg_loss
         loss.backward()
         if global_step % 10 == 0:
             print(f"Epoch {epoch} Step {global_step}:")
