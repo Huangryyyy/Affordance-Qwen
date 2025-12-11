@@ -94,6 +94,7 @@ class AffordanceQwen2_5(nn.Module):
     ):
         super().__init__()
         self.base_model = base_model
+        self.image_token_id = self.base_model.config.image_token_id
         self.seg_token_id = seg_token_id
         self.image_size = image_size
         patch_size = 28  # actually the real patch_size in Qwen2_5 is 14, but the number of tokens corresponds to patch_size=28
@@ -106,7 +107,7 @@ class AffordanceQwen2_5(nn.Module):
             patch_size=patch_size,
         )
         self.affordance_decoder = self.affordance_decoder.to(
-            device=base_model.device,  # device=torch.device("cuda:1"),
+            device=torch.device("cuda:1"),  # device=base_model.device,
             dtype=base_model.dtype,  # you can put affordance decoder in anothor GPU, manually do a pipeline parallelism
         )
         self.use_depth_image = use_depth_image
@@ -122,9 +123,15 @@ class AffordanceQwen2_5(nn.Module):
         depth_image_grid_thw=None,
         **kwargs,
     ):
-        image_features = self.base_model.visual(
-            pixel_values, grid_thw=image_grid_thw
-        )  # TODO: we run the forward of ViT two times, it costs much unnesseary memory, we need to solve this problem
+        inputs_embeds = self.base_model.get_input_embeddings()(input_ids)
+
+        image_features = self.base_model.visual(pixel_values, grid_thw=image_grid_thw)
+        image_mask = input_ids == self.image_token_id
+        image_mask = (
+            image_mask.unsqueeze(-1).expand_as(inputs_embeds).to(inputs_embeds.device)
+        )
+        inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_features)
+
         kwargs.pop("output_hidden_states", None)
         if (
             self.use_depth_image
@@ -136,11 +143,12 @@ class AffordanceQwen2_5(nn.Module):
             )
             image_features = torch.cat([image_features, depth_image_features], dim=-1)
         outputs = self.base_model(
-            input_ids=input_ids,
+            input_ids=None,
+            inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
             labels=labels,
-            pixel_values=pixel_values,
-            image_grid_thw=image_grid_thw,
+            pixel_values=None,
+            image_grid_thw=None,  # image has been embedded
             output_hidden_states=True,
             **kwargs,
         )
