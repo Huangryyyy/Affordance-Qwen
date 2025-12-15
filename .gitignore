@@ -3,6 +3,7 @@ small_test.py
 **/__pycache__/
 outputs_*/
 *_outputs/
+outputs/
 *.err
 *.out
 checkpoints/

@@ -51,6 +51,7 @@ class AGD20KwithDepth(Dataset):
         else:
             depth_img = None
         inputs = {
+            "id": sample["id"],
             "image": img,
             "depth_image": depth_img,
             "query": sample["query"],
@@ -140,4 +141,5 @@ class CollatorForQwen2_5:
             [torch.Tensor(features[i]["gt_mask"]) for i in range(len(features))]
         )
         self.add_labels(batch_inputs)
+        batch_inputs["sample_ids"] = [features[i]["id"] for i in range(len(features))]
         return batch_inputs

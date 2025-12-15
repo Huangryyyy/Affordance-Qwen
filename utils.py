@@ -2,6 +2,8 @@ import random
 import os
 import numpy as np
 import torch
+from PIL import Image
+import matplotlib.pyplot as plt
 
 
 class Config:
@@ -40,3 +42,24 @@ class SegmentationFocalLoss(nn.Module):
             alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
             loss = alpha_t * loss
         return loss.mean()
+
+
+def save_two_tensors(tensor1, tensor2, file_path, title1="pred", title2="gt", gap=0.1):
+    img1 = tensor1.float().cpu().detach().numpy()
+    img2 = tensor2.float().cpu().detach().numpy()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+    ax1.imshow(img1, cmap="gray", vmin=0, vmax=1)
+    ax1.set_title(title1, fontsize=14)
+    ax1.axis("off")
+
+    ax2.imshow(img2, cmap="gray", vmin=0, vmax=1)
+    ax2.set_title(title2, fontsize=14)
+    ax2.axis("off")
+
+    plt.subplots_adjust(wspace=gap)
+
+    plt.savefig(file_path, bbox_inches="tight", dpi=150)
+
+    plt.close(fig)

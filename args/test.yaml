@@ -1,0 +1,14 @@
+model_path: /mnt/sda/LVLMs/Qwen/Qwen2.5-VL-7B-Instruct
+test_json_path: ./data_split/val_data.json
+img_path: /mnt/sda/AGD20K/
+
+image_size: 896
+
+lora_r: 64
+lora_alpha: 128
+lora_dropout: 0.05
+
+load_model_path: ./checkpoints/affordance_qwen2_5
+output_image_path: ./test_outputs/affordance_qwen2_5
+
+batch_size: 1
