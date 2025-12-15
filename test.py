@@ -68,7 +68,7 @@ affordance_model = AffordanceQwen2_5(
 affordance_model.load_state_dict(
     torch.load(os.path.join(args.load_model_path, "affordance_qwen.pt"))
 )
-
+kl_arr, sim_arr, nss_arr = [], [], []
 for step, inputs in enumerate(data_loader):
     inputs = {
         k: (
@@ -98,6 +98,9 @@ for step, inputs in enumerate(data_loader):
         pred_tokens[-20:], skip_special_tokens=False
     )
     print(f"Output Example:\n{decoded_pred.replace("\n","\\n")}")
+    kl_arr.append(cal_kl(pred_masks_upscaled, inputs["gt_masks"]).item())
+    sim_arr.append(cal_sim(pred_masks_upscaled, inputs["gt_masks"]).item())
+    nss_arr.append(cal_nss(pred_masks_upscaled, inputs["gt_masks"]).item())
     save_two_tensors(
         pred_masks_upscaled[0],
         inputs["gt_masks"][0],
@@ -105,3 +108,4 @@ for step, inputs in enumerate(data_loader):
             args.output_image_path, f"mask_{inputs["sample_ids"][0]}.png"
         ),
     )
+print(f"KL: {np.mean(kl_arr)}   SIM: {np.mean(sim_arr)}   NSS: {np.mean(nss_arr)}")
