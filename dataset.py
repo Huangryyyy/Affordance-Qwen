@@ -32,20 +32,21 @@ class AGD20KwithDepth(Dataset):
         img = Image.open(os.path.join(self.data_dir, sample["image_path"])).convert(
             "RGB"
         )
+        img = expand2square(img)
         img = img.resize((self.scale_size, self.scale_size), resample=Image.BICUBIC)
-
         mask = Image.open(os.path.join(self.data_dir, sample["gt_path"])).convert("L")
+        mask = expand2square(mask)
         mask = mask.resize((self.scale_size, self.scale_size), resample=Image.BICUBIC)
         mask = np.array(mask)
         if mask.max() > 1:
             gt_mask = (mask > 127).astype(np.float32)
         else:
             gt_mask = mask.astype(np.float32)
-
         if self.load_depth_image:
             depth_img = Image.open(
                 os.path.join(self.data_dir, sample["depth"])
             ).convert("RGB")
+            depth_img = expand2square(depth_img)
             depth_img = depth_img.resize(
                 (self.scale_size, self.scale_size), resample=Image.BICUBIC
             )

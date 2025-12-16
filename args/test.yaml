@@ -4,6 +4,7 @@ img_path: /mnt/sda/AGD20K/
 
 image_size: 896
 
+use_lora: True
 lora_r: 64
 lora_alpha: 128
 lora_dropout: 0.05

@@ -31,24 +31,25 @@ model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
     args.model_path, device_map="auto", dtype=torch.bfloat16
 )
 model.resize_token_embeddings(len(processor.tokenizer))
-peft_config = LoraConfig(
-    r=args.lora_r,
-    lora_alpha=args.lora_alpha,
-    lora_dropout=args.lora_dropout,
-    bias="none",
-    task_type=TaskType.CAUSAL_LM,
-    target_modules=[
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj",
-    ],
-    modules_to_save=["embed_tokens", "lm_head"],
-)
-model = get_peft_model(model, peft_config)
+if args.use_lora:
+    peft_config = LoraConfig(
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        bias="none",
+        task_type=TaskType.CAUSAL_LM,
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
+        modules_to_save=["embed_tokens", "lm_head"],
+    )
+    model = get_peft_model(model, peft_config)
 
 train_dataset = AGD20KwithDepth(
     json_dir=args.train_json_path,
@@ -66,9 +67,19 @@ data_loader = DataLoader(
 affordance_model = AffordanceQwen2_5(
     model, seg_token_id=seg_token_id, image_size=args.image_size
 )
-optimizer = torch.optim.AdamW(
-    affordance_model.parameters(), lr=args.lr, weight_decay=args.weight_decay
-)
+optimizer_grouped_parameters = [
+    {
+        "params": model.base_model.parameters(),
+        "lr": args.base_model_lr,
+        "weight_decay": args.weight_decay,
+    },
+    {
+        "params": model.affordance_decoder.parameters(),
+        "lr": args.decoder_lr,
+        "weight_decay": args.weight_decay,
+    },
+]
+optimizer = torch.optim.AdamW(optimizer_grouped_parameters)
 optimizer.zero_grad()
 seg_loss_func = SegmentationFocalLoss()
 global_step = 0
@@ -116,7 +127,8 @@ for epoch in range(args.epochs):
                 pred_masks_upscaled[0],
                 inputs["gt_masks"][0],
                 file_path=os.path.join(
-                    args.output_image_path, f"mask_step{global_step}.png"
+                    args.output_image_path,
+                    f"mask_step{global_step}_{inputs["sample_ids"][0]}.png",
                 ),
             )
 
