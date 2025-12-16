@@ -51,7 +51,7 @@ class SegmentationFocalLoss(nn.Module):
         self.gamma = gamma
 
     def forward(self, inputs, targets):
-        bce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+        bce_loss = F.binary_cross_entropy(inputs, targets, reduction="none")
         p_t = torch.exp(-bce_loss)
         focal_term = (1.0 - p_t) ** self.gamma
         loss = focal_term * bce_loss

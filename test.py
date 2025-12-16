@@ -79,13 +79,16 @@ for step, inputs in enumerate(data_loader):
         for k, v in inputs.items()
     }
     outputs = affordance_model(**inputs)
-    pred_masks_upscaled = F.interpolate(
-        outputs["pred_masks"].unsqueeze(1),
-        size=(args.image_size, args.image_size),
-        mode="bilinear",
-        align_corners=False,
-    ).squeeze(1)
-
+    pred_masks_upscaled = (
+        F.interpolate(
+            outputs["pred_masks"].unsqueeze(1),
+            size=(args.image_size, args.image_size),
+            mode="bilinear",
+            align_corners=False,
+        )
+        .squeeze(1)
+        .sigmoid()
+    )
     input_ids = inputs.get("input_ids")
     if input_ids is not None:
         decoded_input = processor.tokenizer.decode(
@@ -101,6 +104,7 @@ for step, inputs in enumerate(data_loader):
     kl_arr.append(cal_kl(pred_masks_upscaled, inputs["gt_masks"]).item())
     sim_arr.append(cal_sim(pred_masks_upscaled, inputs["gt_masks"]).item())
     nss_arr.append(cal_nss(pred_masks_upscaled, inputs["gt_masks"]).item())
+    print(f"KL: {kl_arr[-1]}   SIM: {sim_arr[-1]}   NSS: {nss_arr[-1]}")
     save_two_tensors(
         pred_masks_upscaled[0],
         inputs["gt_masks"][0],
@@ -108,4 +112,6 @@ for step, inputs in enumerate(data_loader):
             args.output_image_path, f"mask_{inputs["sample_ids"][0]}.png"
         ),
     )
-print(f"KL: {np.mean(kl_arr)}   SIM: {np.mean(sim_arr)}   NSS: {np.mean(nss_arr)}")
+print(
+    f"FINAL RESULT:   KL: {np.mean(kl_arr)}   SIM: {np.mean(sim_arr)}   NSS: {np.mean(nss_arr)}"
+)
