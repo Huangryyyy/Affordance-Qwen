@@ -61,22 +61,26 @@ class SegmentationFocalLoss(nn.Module):
         return loss.mean()
 
 
-def save_two_tensors(tensor1, tensor2, file_path, title1="pred", title2="gt", gap=0.1):
-    img1 = tensor1.float().cpu().detach().numpy()
-    img2 = tensor2.float().cpu().detach().numpy()
+def save_example(pred, gt, origin_img, file_path, gap=0.1):
+    img1 = pred.float().cpu().detach().numpy()
+    img2 = gt.float().cpu().detach().numpy()
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
 
     ax1.imshow(img1, cmap="gray", vmin=0, vmax=1)
-    ax1.set_title(title1, fontsize=14)
+    ax1.set_title("pred", fontsize=14)
     ax1.axis("off")
 
     ax2.imshow(img2, cmap="gray", vmin=0, vmax=1)
-    ax2.set_title(title2, fontsize=14)
+    ax2.set_title("gt", fontsize=14)
     ax2.axis("off")
 
-    plt.subplots_adjust(wspace=gap)
+    ax3.imshow(origin_img)
+    ax3.set_title("image", fontsize=14)
+    ax3.axis("off")
 
+    plt.subplots_adjust(wspace=gap)
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     plt.savefig(file_path, bbox_inches="tight", dpi=150)
 
     plt.close(fig)

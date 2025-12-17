@@ -144,4 +144,7 @@ class CollatorForQwen2_5:
         )
         self.add_labels(batch_inputs)
         batch_inputs["sample_ids"] = [features[i]["id"] for i in range(len(features))]
+        batch_inputs["origin_images"] = [
+            features[i]["image"] for i in range(len(features))
+        ]
         return batch_inputs

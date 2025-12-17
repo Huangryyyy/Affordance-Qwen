@@ -19,8 +19,10 @@ with open(args_path, "r") as f:
     args_dict = yaml.safe_load(f)
     print(args_dict)
 args = Config(args_dict)
+
 os.makedirs(args.save_model_path, exist_ok=True)
 os.makedirs(args.output_image_path, exist_ok=True)
+
 processor = AutoProcessor.from_pretrained(args.model_path)
 processor.tokenizer.add_tokens("<seg_token>", special_tokens=True)
 seg_token_id = processor.tokenizer(
@@ -69,12 +71,12 @@ affordance_model = AffordanceQwen2_5(
 )
 optimizer_grouped_parameters = [
     {
-        "params": model.base_model.parameters(),
+        "params": affordance_model.base_model.parameters(),
         "lr": args.base_model_lr,
         "weight_decay": args.weight_decay,
     },
     {
-        "params": model.affordance_decoder.parameters(),
+        "params": affordance_model.affordance_decoder.parameters(),
         "lr": args.decoder_lr,
         "weight_decay": args.weight_decay,
     },
@@ -104,7 +106,8 @@ for epoch in range(args.epochs):
             .squeeze(1)
             .sigmoid()
         )
-        seg_loss = seg_loss_func(pred_masks_upscaled, inputs["gt_masks"])
+        gt_masks = inputs["gt_masks"].to(pred_masks_upscaled.dtype)
+        seg_loss = seg_loss_func(pred_masks_upscaled, gt_masks)
         loss = outputs["sft_loss"] * 0.1 + seg_loss
         loss.backward()
 
@@ -123,13 +126,18 @@ for epoch in range(args.epochs):
                 pred_tokens[-20:], skip_special_tokens=False
             )
             print(f"Output Example:\n{decoded_pred.replace("\n","\\n")}")
-            save_two_tensors(
+            split = inputs["sample_ids"][0].split("_")
+            save_file_path = os.path.join(
+                args.output_image_path,
+                split[0],
+                split[1],
+                f"step{global_step}_{split[2]}_{split[3]}",
+            )
+            save_example(
                 pred_masks_upscaled[0],
                 inputs["gt_masks"][0],
-                file_path=os.path.join(
-                    args.output_image_path,
-                    f"mask_step{global_step}_{inputs["sample_ids"][0]}.png",
-                ),
+                inputs["origin_images"][0],
+                file_path=save_file_path,
             )
 
         global_step += 1

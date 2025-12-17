@@ -19,6 +19,7 @@ with open(args_path, "r") as f:
     args_dict = yaml.safe_load(f)
     print(args_dict)
 args = Config(args_dict)
+
 os.makedirs(args.output_image_path, exist_ok=True)
 
 processor = AutoProcessor.from_pretrained(args.load_model_path)
@@ -106,12 +107,18 @@ for step, inputs in enumerate(data_loader):
     sim_arr.append(cal_sim(pred_masks_upscaled, inputs["gt_masks"]).item())
     nss_arr.append(cal_nss(pred_masks_upscaled, inputs["gt_masks"]).item())
     print(f"KL: {kl_arr[-1]}   SIM: {sim_arr[-1]}   NSS: {nss_arr[-1]}")
-    save_two_tensors(
+    split = inputs["sample_ids"][0].split("_")
+    save_file_path = os.path.join(
+        args.output_image_path,
+        split[0],
+        split[1],
+        f"{split[2]}_{split[3]}",
+    )
+    save_example(
         pred_masks_upscaled[0],
         inputs["gt_masks"][0],
-        file_path=os.path.join(
-            args.output_image_path, f"mask_{inputs["sample_ids"][0]}.png"
-        ),
+        inputs["origin_images"][0],
+        file_path=save_file_path,
     )
 print(
     f"FINAL RESULT:   KL: {np.mean(kl_arr)}   SIM: {np.mean(sim_arr)}   NSS: {np.mean(nss_arr)}"

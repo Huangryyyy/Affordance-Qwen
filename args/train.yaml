@@ -1,18 +1,18 @@
 model_path: /mnt/sda/LVLMs/Qwen/Qwen2.5-VL-7B-Instruct
-train_json_path: ./data_split/train_data.json
+train_json_path: ./data_split/new_train_data.json
 img_path: /mnt/sda/AGD20K/
 
 image_size: 896
 
 save_model_path: ./checkpoints/affordance_qwen2_5_nolora
-output_image_path: ./outputs/affordance_qwen2_5_nolora
+output_image_path: ./train_outputs/affordance_qwen2_5_nolora
 
 use_lora: False
 lora_r: 64
 lora_alpha: 128
 lora_dropout: 0.05
 
-epochs: 10
+epochs: 15
 batch_size: 2
 gradient_accumulation_steps: 4
 
