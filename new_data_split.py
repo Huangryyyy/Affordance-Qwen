@@ -1,6 +1,7 @@
 import json
 import random
 from collections import defaultdict
+from utils import split_id
 
 with open("./data_split/train_data.json", "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -9,8 +10,8 @@ with open("./data_split/test_data.json", "r", encoding="utf-8") as f:
 category_map = defaultdict(list)
 
 for item in data:
-    parts = item["id"].split("_")
-    category = f"{parts[0]}_{parts[1]}"
+    action, thing, _ = split_id(item["id"])
+    category = f"{action}_{thing}"
     category_map[category].append(item)
 
 train_set = []
@@ -18,6 +19,7 @@ test_set = []
 
 train_ratio = 0.75
 for cat, items in category_map.items():
+    print(cat)
     random.shuffle(items)
     split_idx = int(len(items) * train_ratio)
     if split_idx == len(items) and len(items) > 1:

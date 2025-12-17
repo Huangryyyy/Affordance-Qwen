@@ -61,6 +61,59 @@ class SegmentationFocalLoss(nn.Module):
         return loss.mean()
 
 
+def split_id(id):
+    action_list = [
+        "beat",
+        "boxing",
+        "brush_with",
+        "carry",
+        "catch",
+        "cut",
+        "cut_with",
+        "drag",
+        "drink_with",
+        "eat",
+        "hit",
+        "hold",
+        "jump",
+        "kick",
+        "lie_on",
+        "lift",
+        "look_out",
+        "open",
+        "pack",
+        "peel",
+        "pick_up",
+        "pour",
+        "push",
+        "ride",
+        "sip",
+        "sit_on",
+        "stick",
+        "stir",
+        "swing",
+        "take_photo",
+        "talk_on",
+        "text_on",
+        "throw",
+        "type_on",
+        "wash",
+        "write",
+    ]
+    parts = id.split("_")
+    if f"{parts[0]}_{parts[1]}" in action_list:
+        action = f"{parts[0]}_{parts[1]}"
+    else:
+        action = parts[0]
+    if parts[-2] == parts[-3]:
+        thing = parts[-2]
+        file_name = f"{parts[-2]}_{parts[-1]}"
+    else:
+        thing = f"{parts[-3]}_{parts[-2]}"
+        file_name = f"{parts[-3]}_{parts[-2]}_{parts[-1]}"
+    return action, thing, file_name
+
+
 def save_example(pred, gt, origin_img, file_path, gap=0.1):
     img1 = pred.float().cpu().detach().numpy()
     img2 = gt.float().cpu().detach().numpy()

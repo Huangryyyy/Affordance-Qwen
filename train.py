@@ -126,12 +126,12 @@ for epoch in range(args.epochs):
                 pred_tokens[-20:], skip_special_tokens=False
             )
             print(f"Output Example:\n{decoded_pred.replace("\n","\\n")}")
-            split = inputs["sample_ids"][0].split("_")
+            action, thing, file_name = split_id(inputs["sample_ids"][0])
             save_file_path = os.path.join(
                 args.output_image_path,
-                split[0],
-                split[1],
-                f"step{global_step}_{split[2]}_{split[3]}",
+                action,
+                thing,
+                f"step{global_step}_{file_name}",
             )
             save_example(
                 pred_masks_upscaled[0],

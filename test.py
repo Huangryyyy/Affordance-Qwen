@@ -107,12 +107,12 @@ for step, inputs in enumerate(data_loader):
     sim_arr.append(cal_sim(pred_masks_upscaled, inputs["gt_masks"]).item())
     nss_arr.append(cal_nss(pred_masks_upscaled, inputs["gt_masks"]).item())
     print(f"KL: {kl_arr[-1]}   SIM: {sim_arr[-1]}   NSS: {nss_arr[-1]}")
-    split = inputs["sample_ids"][0].split("_")
+    action, thing, file_name = split_id(inputs["sample_ids"][0])
     save_file_path = os.path.join(
         args.output_image_path,
-        split[0],
-        split[1],
-        f"{split[2]}_{split[3]}",
+        action,
+        thing,
+        file_name,
     )
     save_example(
         pred_masks_upscaled[0],
