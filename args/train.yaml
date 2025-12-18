@@ -13,9 +13,9 @@ lora_alpha: 128
 lora_dropout: 0.05
 
 epochs: 15
-batch_size: 2
+batch_size: 4
 gradient_accumulation_steps: 4
 
 base_model_lr: 0.00005
-decoder_lr: 0.0001
+decoder_lr: 0.00005
 weight_decay: 0.01
