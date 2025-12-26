@@ -1,6 +1,6 @@
-model_path: /mnt/sda/LVLMs/Qwen/Qwen2.5-VL-7B-Instruct
+model_path: /mnt/shared/LVLMs/Qwen/Qwen2.5-VL-7B-Instruct
 test_json_path: ./data_split/new_test_data.json
-img_path: /mnt/sda/AGD20K/
+img_path: /mnt/shared/AGD20K/
 
 image_size: 896
 
