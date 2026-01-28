@@ -1,20 +1,15 @@
 import torch
-from transformers import (
-    AutoProcessor,
-    AutoModelForVision2Seq,
-    Qwen2_5_VLForConditionalGeneration,
-)
+from transformers import Sam3Processor, Sam3Model
 import yaml
 import os
 from utils import *
-from dataset import AGD20KwithDepth, CollatorForQwen2_5
-from model.affordance_model import AffordanceQwen2_5
+from dataset import AGD20KwithDepth, CollatorForSam3
 from peft import LoraConfig, get_peft_model, TaskType
 from torch.utils.data import DataLoader
-
+import re
 set_seed(seed=42)
 
-args_path = "./args/train.yaml"
+args_path = "./args/sam3_train.yaml"
 with open(args_path, "r") as f:
     args_dict = yaml.safe_load(f)
     print(args_dict)
@@ -23,16 +18,13 @@ args = Config(args_dict)
 os.makedirs(args.save_model_path, exist_ok=True)
 os.makedirs(args.output_image_path, exist_ok=True)
 
-processor = AutoProcessor.from_pretrained(args.model_path)
-processor.tokenizer.add_tokens("<seg_token>", special_tokens=True)
-seg_token_id = processor.tokenizer(
-    "<seg_token>", return_tensors="pt", add_special_tokens=False
-)["input_ids"][0].item()
+from transformers import logging
 
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    args.model_path, device_map="auto", dtype=torch.bfloat16
-)
-model.resize_token_embeddings(len(processor.tokenizer))
+logging.disable_progress_bar()
+
+model = Sam3Model.from_pretrained(args.model_path, dtype=torch.bfloat16).to("cuda")
+processor = Sam3Processor.from_pretrained(args.model_path)
+
 if args.use_lora:
     peft_config = LoraConfig(
         r=args.lora_r,
@@ -49,14 +41,13 @@ if args.use_lora:
             "up_proj",
             "down_proj",
         ],
-        modules_to_save=["embed_tokens", "lm_head"],
     )
     model = get_peft_model(model, peft_config)
 
 def additional_process(sample):
-    sample["answer"] = sample["answer"].replace("<|extra_0|>", "<seg_token>")
+    pattern = r"What\s+(.*?)\s+should we interact with in order to\s+(.*?)\s+it\?"
+    sample["query"]=re.sub(pattern, r"\1 to \2", sample["query"])
     return sample
-
 train_dataset = AGD20KwithDepth(
     json_dir=args.train_json_path,
     data_dir=args.img_path,
@@ -68,69 +59,50 @@ data_loader = DataLoader(
     train_dataset,
     batch_size=args.batch_size,
     shuffle=True,
-    collate_fn=CollatorForQwen2_5(processor),
+    collate_fn=CollatorForSam3(processor=processor),
 )
 
-affordance_model = AffordanceQwen2_5(
-    model, seg_token_id=seg_token_id, image_size=args.image_size
-)
-optimizer_grouped_parameters = [
-    {
-        "params": affordance_model.base_model.parameters(),
-        "lr": args.base_model_lr,
-        "weight_decay": args.weight_decay,
-    },
-    {
-        "params": affordance_model.affordance_decoder.parameters(),
-        "lr": args.decoder_lr,
-        "weight_decay": args.weight_decay,
-    },
-]
-optimizer = torch.optim.AdamW(optimizer_grouped_parameters)
+model.load_state_dict(torch.load(os.path.join(args.load_model_path, "affordance_sam3.pt")))
+
+for name, param in model.named_parameters():
+    if "vision_encoder" in name:
+        param.requires_grad = False
+    if param.requires_grad:
+        print(name)
+
+optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 optimizer.zero_grad()
-seg_loss_func = SegmentationFocalLoss()
 global_step = 0
 for epoch in range(args.epochs):
     for step, inputs in enumerate(data_loader):
         inputs = {
             k: (
-                v.to(affordance_model.base_model.device)
+                v.to(model.device)
                 if isinstance(v, torch.Tensor)
                 else v
             )
             for k, v in inputs.items()
         }
-        outputs = affordance_model(**inputs)
+        outputs = model(**inputs)
         pred_masks_upscaled = (
             F.interpolate(  # scale to the image size
-                outputs["pred_masks"].unsqueeze(1),
+                outputs.pred_masks,
                 size=(args.image_size, args.image_size),
                 mode="bilinear",
                 align_corners=False,
             )
-            .squeeze(1)
-            .sigmoid()
         )
         gt_masks = inputs["gt_masks"].to(pred_masks_upscaled.dtype)
-        seg_loss = seg_loss_func(pred_masks_upscaled, gt_masks)
-        loss = outputs["sft_loss"] * 0.1 + seg_loss
-        loss.backward()
 
+        mask_loss, score_loss, batch_best_pred = compute_bestpred_loss(
+            pred_masks_upscaled, outputs.pred_logits, gt_masks
+        )
+        loss=mask_loss+score_loss
+        loss.backward()
         if global_step % 10 == 0:
             print(f"Epoch {epoch} Step {global_step}:")
-            input_ids = inputs.get("input_ids")
             print(f"Loss: {loss.item()}")
-            if input_ids is not None:
-                decoded_input = processor.tokenizer.decode(
-                    input_ids[0][-20:], skip_special_tokens=False
-                )
-                print(f"Input Example:\n{decoded_input.replace("\n","\\n")}")
-            logits = outputs["logits"]
-            pred_tokens = torch.argmax(logits[0], dim=-1)
-            decoded_pred = processor.tokenizer.decode(
-                pred_tokens[-20:], skip_special_tokens=False
-            )
-            print(f"Output Example:\n{decoded_pred.replace("\n","\\n")}")
+            print(f"sample ids: {inputs['sample_ids'][0]}")
             action, thing, file_name = split_id(inputs["sample_ids"][0])
             save_file_path = os.path.join(
                 args.output_image_path,
@@ -139,7 +111,7 @@ for epoch in range(args.epochs):
                 f"step{global_step}_{file_name}",
             )
             save_example(
-                pred_masks_upscaled[0],
+                batch_best_pred[0],
                 inputs["gt_masks"][0],
                 inputs["origin_images"][0],
                 file_path=save_file_path,
@@ -153,10 +125,10 @@ for epoch in range(args.epochs):
 
         if global_step % 2000 == 0:
             torch.save(
-                affordance_model.state_dict(),
-                f"{args.save_model_path}/affordance_qwen_step{global_step}.pt",
+                model.state_dict(),
+                f"{args.save_model_path}/affordance_sam3_step{global_step}.pt",
             )
 
 
-torch.save(affordance_model.state_dict(), f"{args.save_model_path}/affordance_qwen.pt")
+torch.save(model.state_dict(), f"{args.save_model_path}/affordance_sam3.pt")
 processor.save_pretrained(args.save_model_path)

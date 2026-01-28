@@ -175,3 +175,33 @@ def cal_nss(pred, gt, eps=1e-12):
     count = torch.sum(fixation_map, dim=(-2, -1))
     nss = nss_sum / (count + eps)
     return nss
+
+def compute_bestpred_loss(pred_masks, pred_scores, gt_mask):
+    
+    """
+    pred_masks: [Batch, N_queries, H, W], logits
+    pred_scores: [Batch, N_queries], logits
+    gt_mask:    [Batch, H, W]
+    """
+
+    pred_flat = pred_masks.sigmoid().flatten(2)
+    gt_flat = gt_mask.unsqueeze(1).flatten(2)
+    intersection = (pred_flat * gt_flat).sum(-1)
+    union = pred_flat.sum(-1) + gt_flat.sum(-1) - intersection
+    iou = (intersection + 1e-6) / (union + 1e-6)
+    matched_iou, matched_idx = iou.max(dim=1)
+    loss_mask = 0
+    loss_score = 0
+    batch_size = pred_masks.shape[0]
+    batch_best_pred=[]
+    for b in range(batch_size):
+        idx = matched_idx[b]
+        best_pred_mask = pred_masks[b, idx]
+        batch_best_pred.append(best_pred_mask.sigmoid())
+        current_gt = gt_mask[b]
+        loss_mask += F.binary_cross_entropy_with_logits(best_pred_mask, current_gt)
+        target_scores = torch.zeros_like(pred_scores[b])
+        target_scores[idx] = 1.0 
+        loss_score += F.binary_cross_entropy_with_logits(pred_scores[b], target_scores)
+    batch_best_pred=torch.stack(batch_best_pred,dim=0)
+    return loss_mask / batch_size, loss_score / batch_size, batch_best_pred

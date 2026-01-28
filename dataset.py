@@ -15,6 +15,7 @@ class AGD20KwithDepth(Dataset):
         data_dir="/mnt/DATA/AGD20K",
         scale_size=896,
         load_depth_image=True,
+        additional_process=None,
     ):
         super(AGD20KwithDepth, self).__init__()
         self.json_dir = json_dir
@@ -23,12 +24,15 @@ class AGD20KwithDepth(Dataset):
         self.data_dir = data_dir
         self.scale_size = scale_size
         self.load_depth_image = load_depth_image
+        self.additional_process = additional_process
 
     def __len__(self):
         return len(self.json_data)
 
     def __getitem__(self, i):
         sample = self.json_data[i].copy()
+        if self.additional_process is not None:
+            sample = self.additional_process(sample)
         img = Image.open(os.path.join(self.data_dir, sample["image_path"])).convert(
             "RGB"
         )
@@ -39,7 +43,7 @@ class AGD20KwithDepth(Dataset):
         mask = mask.resize((self.scale_size, self.scale_size), resample=Image.BICUBIC)
         mask = np.array(mask)
         if mask.max() > 1:
-            gt_mask = (mask > 127).astype(np.float32)
+            gt_mask = (mask/255.0).astype(np.float32)
         else:
             gt_mask = mask.astype(np.float32)
         if self.load_depth_image:
@@ -57,7 +61,7 @@ class AGD20KwithDepth(Dataset):
             "image": img,
             "depth_image": depth_img,
             "query": sample["query"],
-            "answer": sample["answer"].replace("<|extra_0|>", "<seg_token>"),
+            "answer": sample["answer"],
             "gt_mask": gt_mask,
         }
         return inputs
@@ -144,6 +148,28 @@ class CollatorForQwen2_5:
         )
         self.add_labels(batch_inputs)
         batch_inputs["sample_ids"] = [features[i]["id"] for i in range(len(features))]
+        batch_inputs["origin_images"] = [
+            features[i]["image"] for i in range(len(features))
+        ]
+        return batch_inputs
+
+
+class CollatorForSam3:
+    def __init__(self, processor):
+        self.processor = processor
+
+    def __call__(self, features):
+        images = [features[i]["image"] for i in range(len(features))]
+        texts = [features[i]["query"] for i in range(len(features))]
+        batch_inputs=self.processor(
+            images=images,
+            text=texts,
+            return_tensors="pt",
+        )
+        batch_inputs["sample_ids"] = [features[i]["id"] for i in range(len(features))]
+        batch_inputs["gt_masks"] = torch.stack(
+            [torch.Tensor(features[i]["gt_mask"]) for i in range(len(features))]
+        )
         batch_inputs["origin_images"] = [
             features[i]["image"] for i in range(len(features))
         ]

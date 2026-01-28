@@ -1,0 +1,22 @@
+model_path: /mnt/shared/models/sam3-base
+train_json_path: ./data_split/new_train_data.json
+img_path: /mnt/shared/AGD20K/
+
+image_size: 896
+
+save_model_path: ./checkpoints/affordance_sam3_nolora_nobinmask_3
+output_image_path: ./train_outputs/affordance_sam3_nolora_nobinmask_3
+
+load_model_path: ./checkpoints/affordance_sam3_nolora_nobinmask_2
+
+use_lora: False
+lora_r: 64
+lora_alpha: 128
+lora_dropout: 0.05
+
+epochs: 15
+batch_size: 4
+gradient_accumulation_steps: 4
+
+lr: 0.00005
+weight_decay: 0.01

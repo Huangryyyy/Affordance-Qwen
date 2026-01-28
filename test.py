@@ -51,11 +51,16 @@ if args.use_lora:
     )
     model = get_peft_model(model, peft_config)
 
+def additional_process(sample):
+    sample["answer"] = sample["answer"].replace("<|extra_0|>", "<seg_token>")
+    return sample
+
 train_dataset = AGD20KwithDepth(
     json_dir=args.test_json_path,
     data_dir=args.img_path,
     scale_size=args.image_size,
     load_depth_image=False,
+    additional_process=additional_process,
 )
 data_loader = DataLoader(
     train_dataset,
@@ -103,9 +108,9 @@ for step, inputs in enumerate(data_loader):
         pred_tokens[-20:], skip_special_tokens=False
     )
     print(f"Output Example:\n{decoded_pred.replace("\n","\\n")}")
-    kl_arr.append(cal_kl(pred_masks_upscaled, inputs["gt_masks"]).item())
-    sim_arr.append(cal_sim(pred_masks_upscaled, inputs["gt_masks"]).item())
-    nss_arr.append(cal_nss(pred_masks_upscaled, inputs["gt_masks"]).item())
+    kl_arr.extend(cal_kl(pred_masks_upscaled, inputs["gt_masks"]).cpu().detach().numpy().tolist())
+    sim_arr.extend(cal_sim(pred_masks_upscaled, inputs["gt_masks"]).cpu().detach().numpy().tolist())
+    nss_arr.extend(cal_nss(pred_masks_upscaled, inputs["gt_masks"]).cpu().detach().numpy().tolist())
     print(f"KL: {kl_arr[-1]}   SIM: {sim_arr[-1]}   NSS: {nss_arr[-1]}")
     action, thing, file_name = split_id(inputs["sample_ids"][0])
     save_file_path = os.path.join(
